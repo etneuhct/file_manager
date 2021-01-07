@@ -1,44 +1,29 @@
-from system_file import SystemFolder, SystemFile, SystemArchive
-from file_types import FileTypes
+from clean_folder import CleanFolder
+import argparse
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 
-class CleanFolder:
+class FileHandlerException(Exception):
+    pass
 
-    def __init__(self, folder_path, destination_path):
-        self.folder_path = folder_path
-        self.destination_path = destination_path
-        self.system_folder = SystemFolder(self.folder_path)
+if __name__ == '__main__':
 
-        self.file_manager_folder_path = SystemFolder(self.destination_path).add_folder("file_manager")
-        self.archives_folder = SystemFolder(self.file_manager_folder_path).add_folder("archives")
-        self.extract_archives = SystemFolder(self.archives_folder).add_folder("extract_archives")
-        self.unzipped_archives = SystemFolder(self.archives_folder).add_folder("archives")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-src', required=False, help="chemin du dossier a nettoyer", type=str,
+                        default=os.getenv('CLEAN_SRC'))
+    parser.add_argument('-dest', required=False, help="Chemin ou mettre les fichiers nettoyés", type=str,
+                        default=os.getenv('CLEAN_DEST'))
+    args = parser.parse_args()
 
-        if not self.system_folder.exist():
-            raise FileNotFoundError
+    src = getattr(args, 'src')
+    dest = getattr(args, 'dest')
 
-    def get_folder_files(self):
-        return [
-            SystemFile(system_item.file_path)
-            for system_item in self.system_folder.list_files() if system_item.is_file()]
+    if not src or not dest:
+        raise FileHandlerException(
+            "le chemin du dossier à nettoyer et le chemin de "
+            "destination doivent être renseignés dans l'environnement ou en argument")
 
-    def get_archives(self):
-        return [SystemArchive(system_file.file_path)
-                for system_file in self.get_folder_files() if system_file.get_type() == FileTypes.ARCHIVE]
-
-    def clean_archives(self):
-        for archive in self.get_archives():
-            archive.extract(self.extract_archives)
-            archive.move(self.unzipped_archives)
-        return
-
-    def routine(self):
-
-        self.clean_archives()
-
-
-
-path = r"C:\Users\jack\Downloads"
-destination = r"C:\Users\jack\Downloads"
-clean_folder = CleanFolder(path, destination)
-clean_folder.routine()
+    clean_folder = CleanFolder(src, dest)
+    clean_folder.clean_all()

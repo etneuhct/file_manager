@@ -2,7 +2,7 @@ import os
 import shutil
 import zipfile
 from typing import List
-
+from PyPDF2 import PdfFileReader
 from file_types import get_file_types
 
 
@@ -42,9 +42,12 @@ class SystemItem:
     def get_size(self):
         return os.path.getsize(self.file_path)
 
-    def move(self, new_path):
+    def move(self, new_path, copy_name=""):
         os.makedirs(new_path, exist_ok=True)
-        os.rename(self.file_path, os.path.join(new_path, self.name()))
+        try:
+            os.rename(self.file_path, os.path.join(new_path, f"{copy_name}{self.name()}"))
+        except FileExistsError:
+            self.move(new_path, copy_name="(copy) ")
 
     def name(self):
         return os.path.basename(self.file_path)
@@ -53,7 +56,7 @@ class SystemItem:
 class SystemFile(SystemItem):
 
     def get_extension(self):
-        return self.file_path.split(".")[-1]
+        return self.file_path.split(".")[-1].lower()
 
     def get_type(self):
         file_types = get_file_types()
@@ -81,6 +84,13 @@ class SystemFolder(SystemItem):
     def create(self):
         os.mkdir(self.file_path)
 
+    def get_all_sub_folders(self):
+        result = []
+        for path, sub_dirs, files in os.walk(self.file_path):
+            for name in sub_dirs:
+                result.append(SystemFolder(os.path.join(path, name)))
+        return result
+
 
 class SystemArchive(SystemFile):
 
@@ -89,4 +99,21 @@ class SystemArchive(SystemFile):
         with zipfile.ZipFile(self.file_path, 'r') as zip_ref:
             zip_ref.extractall(destination)
 
+
+class SystemApplication(SystemItem):
+    pass
+
+
+class SystemFilePdf(SystemFile):
+
+    def get_metadata(self):
+        pdf = PdfFileReader(open(self.file_path, "rb"))
+        print(pdf.getDocumentInfo())
+        """for k in pdf.getDocumentInfo().keys():
+            if "ARTICLEDOI".lower() in k.lower() or "/doi" in k.lower():
+                print(k, pdf.getDocumentInfo()[k])"""
+
+
+class SystemFileImage(SystemFile):
+    pass
 
